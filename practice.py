@@ -3,9 +3,10 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import Imputer
 from sklearn.preprocessing import PolynomialFeatures
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 
 
-dataset = pd.read_csv("data_2018_11/flats.csv")
+dataset = pd.read_csv("flats.csv")
 
 # clearing dataset
 dataset['floor'] = dataset['floor'] \
@@ -90,13 +91,41 @@ dataset = pd.concat([dropped_dataset, poly_dataset], axis=1)
 
 # saving X and y variables
 y = dataset['price'].values
-X = dataset.values
 dataset = dataset.drop('id', 1).drop('price', 1)
+X = dataset.values
 
 
+# processing categoric data
+dataset['building_material'] = dataset['building_material'].astype('category')
+dataset['comfort'] = dataset['comfort'].astype('category')
+dataset['cond'] = dataset['cond'].astype('category')
+dataset['heating'] = dataset['heating'].astype('category')
+dataset['parking'] = dataset['parking'].astype('category')
+dataset['sub_type'] = dataset['sub_type'].astype('category')
+dataset['toilet'] = dataset['toilet'].astype('category')
+dataset['location_accuracy'] = dataset['location_accuracy'].astype('category')
 
 
+# encoding categorical data
+categoricalIndexes = []
+labelEncoders = {}
+for column in dataset.columns:
+    if dataset[column].dtype.name == 'category':
+        idx = dataset.columns.get_loc(column)
+        categoricalIndexes.append(idx)
+        label_encoder = LabelEncoder()
+        X[:, idx] = label_encoder.fit_transform(X[:, idx])
+        labelEncoders[idx] = label_encoder
 
+# libs take care of dummy variable trap so I don't have to
+# (otherwise should drop first column for each category)
+oneHotEncoder = OneHotEncoder(categorical_features=categoricalIndexes)
+X = oneHotEncoder.fit_transform(X).toarray()
+
+X = dataset.values
+for idx in categoricalIndexes:
+    X[:, idx] = labelEncoders[idx].transform(X[:, idx])
+X = oneHotEncoder.transform(X).toarray()
 
 
 # sandbox:
