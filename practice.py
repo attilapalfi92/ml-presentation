@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import Imputer
+from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Ridge
+from plot_learning_curves import plot_learning_curve
+from plot_regularizations import plot_regularizations
 
 
 dataset = pd.read_csv("flats.csv")
@@ -61,18 +66,20 @@ dataset = dataset.drop('barrier_free', 1) if 'barrier_free' in dataset.columns e
 dataset = dataset.drop('build_year', 1) if 'build_year' in dataset.columns else dataset
 dataset = dataset.drop('energy_cert', 1) if 'energy_cert' in dataset.columns else dataset
 dataset = dataset.drop('garden_connected', 1) if 'garden_connected' in dataset.columns else dataset
+dataset = dataset.drop('settlement', 1) if 'settlement' in dataset.columns else dataset
+dataset = dataset.drop('settlement_sub', 1) if 'settlement_sub' in dataset.columns else dataset
+dataset = dataset.drop('location', 1) if 'location' in dataset.columns else dataset
 
 dataset = dataset[~dataset.price.str.contains("milliárd")]
 dataset['price'] = dataset['price'] \
             .apply(lambda p: p.replace(' millió Ft', '').replace(',', '.')) \
             .astype(float)
 
-
 # imputing 
-imp=Imputer(missing_values="NaN", strategy="mean" )
+imp=SimpleImputer(strategy="median", fill_value = 0)
 dataset["floor"]=imp.fit_transform(dataset[["floor"]]).ravel()
 
-imp=Imputer(missing_values="NaN", strategy="mean" )
+imp=SimpleImputer(strategy="median", fill_value = 0)
 dataset["building_levels"]=imp.fit_transform(dataset[["building_levels"]]).ravel()
 
 
@@ -89,12 +96,6 @@ dropped_dataset = dataset.drop('rooms', 1).drop('half_rooms', 1).drop('size', 1)
 dataset = pd.concat([dropped_dataset, poly_dataset], axis=1)
 
 
-# saving X and y variables
-y = dataset['price'].values
-dataset = dataset.drop('id', 1).drop('price', 1)
-X = dataset.values
-
-
 # processing categoric data
 dataset['building_material'] = dataset['building_material'].astype('category')
 dataset['comfort'] = dataset['comfort'].astype('category')
@@ -105,30 +106,58 @@ dataset['sub_type'] = dataset['sub_type'].astype('category')
 dataset['toilet'] = dataset['toilet'].astype('category')
 dataset['location_accuracy'] = dataset['location_accuracy'].astype('category')
 
+dataset = dataset.dropna()
+
+y = dataset['price'].values
+dataset = dataset.drop('id', 1).drop('price', 1)
+X = dataset.values
 
 # encoding categorical data
-categoricalIndexes = []
 labelEncoders = {}
+categoricalIndexes = []
+categoricalColumns = []
 for column in dataset.columns:
     if dataset[column].dtype.name == 'category':
         idx = dataset.columns.get_loc(column)
+        name = dataset[column].name
+        print(idx)
+        print(name)
+        categoricalColumns.append(name)
         categoricalIndexes.append(idx)
         label_encoder = LabelEncoder()
-        X[:, idx] = label_encoder.fit_transform(X[:, idx])
+        X[:, idx] = label_encoder.fit_transform(X[:, idx].astype(str))
         labelEncoders[idx] = label_encoder
 
-# libs take care of dummy variable trap so I don't have to
-# (otherwise should drop first column for each category)
+# option 1
 oneHotEncoder = OneHotEncoder(categorical_features=categoricalIndexes)
-X = oneHotEncoder.fit_transform(X).toarray()
+X_onehot = oneHotEncoder.fit_transform(X).toarray()
 
-X = dataset.values
-for idx in categoricalIndexes:
-    X[:, idx] = labelEncoders[idx].transform(X[:, idx])
-X = oneHotEncoder.transform(X).toarray()
+# option 2
+ct = ColumnTransformer(
+    [('one_hot', OneHotEncoder(sparse=False), categoricalIndexes)],  # the column numbers I want to apply this to
+    remainder='passthrough'  # This leaves the rest of my columns in place
+)
+X_ct = ct.fit_transform(X) # Notice the output is a string
+
+# linear regression
+estimator = Ridge(alpha=1)
+standardScaler = StandardScaler()
+X_train = standardScaler.fit_transform(X_onehot)
+estimator.fit(X=X_train, y=y)
+
+plot_learning_curve(estimator, 'lin reg', X, y)
+
+# dev and test set
 
 
 # sandbox:
+
+dataset[column] = label_encoder.fit_transform(dataset[column].astype(str))
+
+oneHotEncoder = OneHotEncoder(categorical_features=categoricalIndexes)
+result = oneHotEncoder.fit_transform(dataset)
+
+
 
 
 
