@@ -7,8 +7,16 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge
+
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import cross_val_score
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import learning_curve
+
+import matplotlib.pyplot as plt
+
+
 from plot_learning_curves import plot_learning_curve
-from plot_regularizations import plot_regularizations
 
 
 dataset = pd.read_csv("flats.csv")
@@ -128,9 +136,87 @@ for column in dataset.columns:
         X[:, idx] = label_encoder.fit_transform(X[:, idx].astype(str))
         labelEncoders[idx] = label_encoder
 
-# option 1
+# onehot
 oneHotEncoder = OneHotEncoder(categorical_features=categoricalIndexes)
 X_onehot = oneHotEncoder.fit_transform(X).toarray()
+
+
+
+# train and test linear regression
+# splitting into train and test set
+X_train, X_test, y_train, y_test = train_test_split(X_onehot, y, test_size = 0.1)
+
+# feature scaling
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# fitting regression
+regressor = Ridge(alpha = 1) # regularized linear regression
+regressor.fit(X = X_train, y = y_train)
+
+# prediction
+y_pred = regressor.predict(X_test)
+
+# evaluating
+train_score = regressor.score(X_train, y_train)
+print('train_score=%s' % train_score)
+test_score = regressor.score(X_test, y_test)
+print('test_score=%s' % test_score)
+scores = cross_val_score(regressor, X=X_train, y=y_train, scoring="neg_mean_squared_error")
+print('scores=%s' % scores)
+J_test = mean_squared_error(y_test, y_pred)
+print('J_test=%s' % J_test)
+
+
+
+# plotting
+
+train_sizes = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 30000, 40000, 50000, 60000]
+
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X_onehot)
+
+estimator = Ridge(alpha = 1)
+train_sizes, train_scores, validation_scores = learning_curve(
+                                                   estimator = regressor, X = X_train,
+                                                   y = y_train, train_sizes = train_sizes, cv = 16,
+                                                   scoring = 'neg_mean_squared_error')
+
+print('Training scores:\n\n', train_scores)
+print('\n', '-' * 70) # separator to make the output easy to read
+print('\nValidation scores:\n\n', validation_scores)
+
+train_scores_mean = -train_scores.mean(axis = 1)
+validation_scores_mean = -validation_scores.mean(axis = 1)
+
+print('Mean training scores\n\n', pd.Series(train_scores_mean, index = train_sizes))
+print('\n', '-' * 20) # separator
+print('\nMean validation scores\n\n',pd.Series(validation_scores_mean, index = train_sizes))
+
+plt.style.use('seaborn')
+
+plt.plot(train_sizes, train_scores_mean, label = 'Training error')
+plt.plot(train_sizes, validation_scores_mean, label = 'Validation error')
+
+plt.ylabel('MSE', fontsize = 14)
+plt.xlabel('Training set size', fontsize = 14)
+plt.title('Learning curves for a linear regression model', fontsize = 18, y = 1.03)
+plt.legend()
+plt.ylim(0,2000)
+
+
+
+
+
+plot_learning_curve(regressor, 'lin reg', X, y)
+
+
+
+
+
+
+# sandbox:
 
 # option 2
 ct = ColumnTransformer(
@@ -138,25 +224,6 @@ ct = ColumnTransformer(
     remainder='passthrough'  # This leaves the rest of my columns in place
 )
 X_ct = ct.fit_transform(X) # Notice the output is a string
-
-# linear regression
-estimator = Ridge(alpha=1)
-standardScaler = StandardScaler()
-X_train = standardScaler.fit_transform(X_onehot)
-estimator.fit(X=X_train, y=y)
-
-plot_learning_curve(estimator, 'lin reg', X, y)
-
-# dev and test set
-
-
-# sandbox:
-
-dataset[column] = label_encoder.fit_transform(dataset[column].astype(str))
-
-oneHotEncoder = OneHotEncoder(categorical_features=categoricalIndexes)
-result = oneHotEncoder.fit_transform(dataset)
-
 
 
 
