@@ -11,6 +11,7 @@ class CategoricalDataProcessor:
         dataset['sub_type'] = dataset['sub_type'].astype('category')
         dataset['toilet'] = dataset['toilet'].astype('category')
         dataset['location_accuracy'] = dataset['location_accuracy'].astype('category')
+        dataset = dataset.dropna()
         return dataset
 
     def __init__(self, dataset):
@@ -32,6 +33,8 @@ class CategoricalDataProcessor:
         # (otherwise should drop first column for each category)
         self.oneHotEncoder = OneHotEncoder(categorical_features=self.categoricalIndexes)
         self.X = self.oneHotEncoder.fit_transform(X).toarray()
+        self.y = dataset['price'].values
+        dataset = dataset.drop('price', 1)
         self.dataset = dataset
 
     def transform(self, dataset):
@@ -44,6 +47,9 @@ class CategoricalDataProcessor:
 
     def getX(self):
         return self.X
+
+    def getY(self):
+        return self.y
 
     def getDataset(self):
         return self.dataset

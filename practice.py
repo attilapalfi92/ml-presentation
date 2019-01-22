@@ -22,28 +22,28 @@ from plot_learning_curves import plot_learning_curve
 dataset = pd.read_csv("flats.csv")
 
 # clearing dataset
-dataset['floor'] = dataset['floor'] \
+dataset['floor'] = dataset['floor'].astype(str) \
     .apply(lambda f: f.replace('nincs megadva', 'NaN'))
     
-dataset['floor'] = dataset['floor'] \
+dataset['floor'] = dataset['floor'].astype(str) \
     .apply(lambda f: f.replace('félemelet', '0.5'))
     
-dataset['floor'] = dataset['floor'] \
+dataset['floor'] = dataset['floor'].astype(str) \
     .apply(lambda f: f.replace('szuterén', '-1'))
 
-dataset['floor'] = dataset['floor'] \
+dataset['floor'] = dataset['floor'].astype(str) \
     .apply(lambda f: f.replace('földszint', '0'))
     
-dataset['floor'] = dataset['floor'] \
+dataset['floor'] = dataset['floor'].astype(str) \
     .apply(lambda f: f.replace('10 felett', '0')).astype(float)
 
-dataset['building_levels'] = dataset['building_levels'] \
+dataset['building_levels'] = dataset['building_levels'].astype(str) \
     .apply(lambda f: f.replace('földszintes', '1'))
 
-dataset['building_levels'] = dataset['building_levels'] \
+dataset['building_levels'] = dataset['building_levels'].astype(str) \
     .apply(lambda f: f.replace('több mint 10', '11'))
     
-dataset['building_levels'] = dataset['building_levels'] \
+dataset['building_levels'] = dataset['building_levels'].astype(str) \
     .apply(lambda f: f.replace('nincs megadva', 'NaN')).astype(float)
     
 room_data = dataset['rooms'].str.split(' \+ ', 1, expand=True)
@@ -84,16 +84,16 @@ dataset['price'] = dataset['price'] \
             .astype(float)
 
 # imputing 
-imp=SimpleImputer(strategy="median", fill_value = 0)
-dataset["floor"]=imp.fit_transform(dataset[["floor"]]).ravel()
+imp = SimpleImputer(strategy="median")
+dataset["floor"] = imp.fit_transform(dataset[["floor"]]).ravel()
 
-imp=SimpleImputer(strategy="median", fill_value = 0)
-dataset["building_levels"]=imp.fit_transform(dataset[["building_levels"]]).ravel()
+imp = SimpleImputer(strategy="median")
+dataset["building_levels"] = imp.fit_transform(dataset[["building_levels"]]).ravel()
 
 
 # polynomial features
 features_to_poly = dataset[['rooms', 'half_rooms', 'size', 'latitude', 'longitude']].values
-polynomialFeatures = PolynomialFeatures(degree=3)
+polynomialFeatures = PolynomialFeatures(degree=1)
 polynomialFeatures.fit(features_to_poly)
 
 X_poly = polynomialFeatures.transform(features_to_poly)
@@ -123,14 +123,12 @@ X = dataset.values
 # encoding categorical data
 labelEncoders = {}
 categoricalIndexes = []
-categoricalColumns = []
 for column in dataset.columns:
     if dataset[column].dtype.name == 'category':
         idx = dataset.columns.get_loc(column)
         name = dataset[column].name
         print(idx)
         print(name)
-        categoricalColumns.append(name)
         categoricalIndexes.append(idx)
         label_encoder = LabelEncoder()
         X[:, idx] = label_encoder.fit_transform(X[:, idx].astype(str))
@@ -157,6 +155,11 @@ regressor.fit(X = X_train, y = y_train)
 
 # prediction
 y_pred = regressor.predict(X_test)
+
+
+
+
+
 
 # evaluating
 train_score = regressor.score(X_train, y_train)
